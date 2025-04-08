@@ -446,10 +446,11 @@ def process_input(user_input: str, user_profile: UserProfile):
         return "场景已结束"
 
     device = get_device(user_input, user_profile)
-    if device == "未知设备":
+    if "未知设备" in device:
         return device
     history.add(user_input, device)
     for dev in device:
+        print(dev)
         user_profile.record_device_usage(dev)
 
     return device

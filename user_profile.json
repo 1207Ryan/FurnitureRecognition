@@ -1,0 +1,23 @@
+{
+  "basic_info": {
+    "age": 20,
+    "gender": "male",
+    "region": "south"
+  },
+  "family_info": {
+    "family_members": 3,
+    "has_children": true,
+    "has_elderly": false,
+    "has_pet": false
+  },
+  "device_data": {
+    "usage": {
+      "空调": 5,
+      "智能门锁": 1,
+      "摄像头": 1,
+      "扫地机器人": 3,
+      "热水器": 1,
+      "浴霸": 2
+    }
+  }
+}
