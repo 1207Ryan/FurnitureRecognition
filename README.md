@@ -67,5 +67,4 @@ Python 3.8+
 
 讯飞星火
 
-# FurnitureRecognition
-# FurnitureRecognition
+
