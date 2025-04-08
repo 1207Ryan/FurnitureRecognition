@@ -66,6 +66,3 @@ Python 3.8+
 百度千帆
 
 讯飞星火
-
-# FurnitureRecognition
-# FurnitureRecognition
