@@ -84,7 +84,8 @@ class UserProfile:
                  region: Optional[str] = "south", family_members: Optional[int] = 1,
                  has_children: Optional[bool] = False, has_elderly: Optional[bool] = False,
                  has_pet: Optional[bool] = False, work_schedule: Optional[str] = "regular",
-                 cooking_habits: Optional[str] = "medium", device_usage: Dict[str, int] = None):
+                 cooking_habits: Optional[str] = "medium", device_usage: Dict[str, int] = None,
+                 **kwargs):
         self.age = age
         self.gender = gender
         self.region = region
@@ -450,23 +451,25 @@ def process_input(user_input: str, user_profile: UserProfile):
         return device
     history.add(user_input, device)
     for dev in device:
-        print(dev)
         user_profile.record_device_usage(dev)
 
     return device
 
 
 def main():
-    # Initialize services
-    user_profile = UserProfile(
-        age=20,
-        gender="male",
-        family_members=3,
-        has_children=True,
-        work_schedule="regular",
-        cooking_habits="frequent",
-        device_usage={"空调": 5, "智能门锁": 1, "摄像头": 1, "扫地机器人": 3, }
-    )
+    # user_profile = UserProfile(
+    #     age=20,
+    #     gender="male",
+    #     family_members=3,
+    #     has_children=True,
+    #     work_schedule="regular",
+    #     cooking_habits="frequent",
+    #     device_usage={"空调": 5, "智能门锁": 1, "摄像头": 1, "扫地机器人": 3, }
+    # )
+    # 读取用户信息
+    with open('user_profile.json', 'r', encoding='utf-8') as user_file:
+        user_profile = UserProfile.load_from_file('user_profile.json')  # 自动处理嵌套结构
+        print(user_profile)
 
     while True:
         print("\n请选择输入方式:")
