@@ -1,0 +1,5 @@
+PyAudio==0.2.14
+Requests==2.32.3
+sparkai==0.3.0
+volcengine_python_sdk==1.1.2
+vosk==0.3.45
