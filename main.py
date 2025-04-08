@@ -116,6 +116,8 @@ class UserProfile:
                 "has_pet": self.has_pet,
             },
             "device_data": {
+                "work_schedule": self.work_schedule,
+                "cooking_habits": self.cooking_habits,
                 "usage": self.device_usage,
             }
         }
@@ -136,6 +138,8 @@ class UserProfile:
                     has_children=data["family_info"].get("has_children", False),
                     has_elderly=data["family_info"].get("has_elderly", False),
                     has_pet=data["family_info"].get("has_pet", False),
+                    work_schedule=data["family_info"].get("work_schedule", None),
+                    cooking_habits=data["family_info"].get("cooking_habits", None),
                     device_usage=data["device_data"].get("usage", {})
                 )
         except (FileNotFoundError, json.JSONDecodeError, KeyError):
@@ -456,6 +460,66 @@ def process_input(user_input: str, user_profile: UserProfile):
     return device
 
 
+def initialize_user_profile() -> UserProfile:
+    """Initialize a new user profile by collecting information from user input"""
+    print("\n===== 新用户配置向导 =====")
+    print("请回答以下问题来初始化您的个人资料 (直接回车可跳过问题)\n")
+
+    # Basic Information
+    age = input("1. 您的年龄: ")
+    print("\n2. 您的性别 (男/女): ")
+    print("  1) 男")
+    print("  2) 女")
+    sex = input("请选择(1-2): ")
+    gender = ["male", "female"][int(sex) - 1] if sex in "12" else "male"
+
+    print("\n3. 您所在的地区 (north/south): ")
+    print("  1) 北方")
+    print("  2) 南方")
+    location = input("请选择(1-2): ")
+    region = ["north", "south"][int(location) - 1] if location in "12" else "south"
+
+    # Family Information
+    family_members = input("4. 家庭成员数量: ")
+    has_children = input("5. 家中有小孩吗? (y/n): ").lower() == 'y'
+    has_elderly = input("6. 家中有老人吗? (y/n): ").lower() == 'y'
+    has_pet = input("7. 家中有宠物吗? (y/n): ").lower() == 'y'
+
+    # Lifestyle
+    print("\n8. 您的工作时间:")
+    print("  1) 朝九晚五 (regular)")
+    print("  2) 夜班 (night_shift)")
+    print("  3) 灵活工作时间 (flexible)")
+    work_choice = input("请选择(1-3): ")
+    work_schedule = ["regular", "night_shift", "flexible"][int(work_choice) - 1] if work_choice in "123" else "regular"
+
+    print("\n9. 您的烹饪频率:")
+    print("  1) 很少做饭 (rare)")
+    print("  2) 偶尔做饭 (medium)")
+    print("  3) 经常做饭 (frequent)")
+    cook_choice = input("请选择(1-3): ")
+    cooking_habits = ["rare", "medium", "frequent"][int(cook_choice) - 1] if cook_choice in "123" else "medium"
+
+    # Initialize with collected data (convert empty strings to None)
+    user_profile = UserProfile(
+        age=int(age) if age else None,
+        gender=gender if gender else None,
+        region=region if region else None,
+        family_members=int(family_members) if family_members else 1,
+        has_children=has_children,
+        has_elderly=has_elderly,
+        has_pet=has_pet,
+        work_schedule=work_schedule,
+        cooking_habits=cooking_habits,
+        device_usage={}  # Start with empty device usage
+    )
+
+    # Save the profile
+    user_profile.save_to_file("user_profile.json")
+    print("\n用户配置已完成并保存!")
+    return user_profile
+
+
 def main():
     # user_profile = UserProfile(
     #     age=20,
@@ -475,8 +539,9 @@ def main():
         print("\n请选择输入方式:")
         print("1. 文本输入")
         print("2. 语音输入")
-        print("3. 退出")
-        choice = input("请输入选项(1-3): ").strip()
+        print("3. 初始化用户信息")
+        print("4. 退出")
+        choice = input("请输入选项(1-4): ").strip()
         # print("当前用户画像:", ContextService.get_user_context(user_profile))
         # print(user_profile.get_sorted_devices())
         if choice == "1":
@@ -490,6 +555,8 @@ def main():
             if result:
                 print(f"需要操作的设备：{result}")
         elif choice == "3":
+            user_file = initialize_user_profile()
+        elif choice == "4":
             break
 
     user_profile.save_to_file("user_profile.json")

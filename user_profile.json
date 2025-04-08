@@ -1,6 +1,6 @@
 {
   "basic_info": {
-    "age": 20,
+    "age": 21,
     "gender": "male",
     "region": "south"
   },
@@ -11,13 +11,8 @@
     "has_pet": false
   },
   "device_data": {
-    "usage": {
-      "空调": 5,
-      "智能门锁": 1,
-      "摄像头": 1,
-      "扫地机器人": 3,
-      "热水器": 3,
-      "浴霸": 4
-    }
+    "work_schedule": "regular",
+    "cooking_habits": "rare",
+    "usage": {}
   }
 }
