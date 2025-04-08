@@ -457,6 +457,7 @@ def process_input(user_input: str, user_profile: UserProfile):
     for dev in device:
         user_profile.record_device_usage(dev)
 
+    user_profile.save_to_file("user_profile.json")
     return device
 
 
@@ -558,8 +559,6 @@ def main():
             user_file = initialize_user_profile()
         elif choice == "4":
             break
-
-    user_profile.save_to_file("user_profile.json")
 
 
 if __name__ == "__main__":
