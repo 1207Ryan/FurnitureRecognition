@@ -84,8 +84,7 @@ class UserProfile:
                  region: Optional[str] = "south", family_members: Optional[int] = 1,
                  has_children: Optional[bool] = False, has_elderly: Optional[bool] = False,
                  has_pet: Optional[bool] = False, work_schedule: Optional[str] = "regular",
-                 cooking_habits: Optional[str] = "medium", device_usage: Dict[str, int] = None,
-                 **kwargs):
+                 cooking_habits: Optional[str] = "medium", device_usage: Dict[str, int] = None):
         self.age = age
         self.gender = gender
         self.region = region
@@ -95,7 +94,7 @@ class UserProfile:
         self.has_pet = has_pet
         self.work_schedule = work_schedule
         self.cooking_habits = cooking_habits
-        self.device_usage = device_usage
+        self.device_usage = device_usage if device_usage is not None else {}
 
     def record_device_usage(self, device_name: str):
         """记录设备使用次数"""
@@ -246,8 +245,9 @@ def recommend_devices(user: UserProfile, match_devices: List[Union[str, List[str
         criteria_scores['time_related'] = time_score
 
         # 使用频率得分（归一化到0-1）
-        max_usage = max(user.device_usage.values()) if user.device_usage else 1
-        criteria_scores['usage'] = user.device_usage.get(device, 0) / max_usage if max_usage > 0 else 0
+        if user.device_usage:
+            max_usage = max(user.device_usage.values()) if user.device_usage else 1
+            criteria_scores['usage'] = user.device_usage.get(device, 0) / max_usage if max_usage > 0 else 0
 
         # 计算加权总分
         total_score = sum(criteria_scores[criteria] * CRITERIA_WEIGHTS[criteria]
@@ -435,7 +435,16 @@ def get_device(user_input: str, user_profile: UserProfile) -> list[str] | str:
     )
 
     response = chat_qianfan(prompt)
-    return response
+    if isinstance(response, str):
+        response = json.loads(response)
+    filtered_devices = []
+    for device in response:
+        if isinstance(device, str):
+            filtered_devices.append(device)
+        elif isinstance(device, list):
+            for dev in device:
+                filtered_devices.append(dev)
+    return filtered_devices
 
 
 def process_input(user_input: str, user_profile: UserProfile):
@@ -454,8 +463,15 @@ def process_input(user_input: str, user_profile: UserProfile):
     if "未知设备" in device:
         return device
     history.add(user_input, device)
+
+    # print(device)
     for dev in device:
-        user_profile.record_device_usage(dev)
+        if isinstance(dev, str):
+            # print(dev)
+            user_profile.record_device_usage(dev)
+        elif isinstance(dev, list):
+            for d in dev:
+                user_profile.record_device_usage(d)
 
     user_profile.save_to_file("user_profile.json")
     return device
@@ -522,20 +538,13 @@ def initialize_user_profile() -> UserProfile:
 
 
 def main():
-    # user_profile = UserProfile(
-    #     age=20,
-    #     gender="male",
-    #     family_members=3,
-    #     has_children=True,
-    #     work_schedule="regular",
-    #     cooking_habits="frequent",
-    #     device_usage={"空调": 5, "智能门锁": 1, "摄像头": 1, "扫地机器人": 3, }
-    # )
     # 读取用户信息
-    with open('user_profile.json', 'r', encoding='utf-8') as user_file:
-        user_profile = UserProfile.load_from_file('user_profile.json')  # 自动处理嵌套结构
-        print(user_profile)
-
+    try:
+        with open('user_profile.json', 'r', encoding='utf-8') as user_file:
+            user_profile = UserProfile.load_from_file('user_profile.json')  # 自动处理嵌套结构
+            print(user_profile)
+    except FileNotFoundError:
+        user_profile = initialize_user_profile()
     while True:
         print("\n请选择输入方式:")
         print("1. 文本输入")
