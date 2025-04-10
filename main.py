@@ -38,13 +38,13 @@ class DialogHistory:
 
     def detect_scene(self, user_input: str) -> Optional[str]:
         """实时场景检测（单条触发机制）"""
-        if self.current_scene is not None:
+        if self.current_scene is not None and self.current_scene != "默认场景":
             self.scene_persist_counter -= 1  # 每轮无匹配递减
             return self.current_scene
 
         # 清空场景的条件（计数器归零或没有设备匹配）
         if self.scene_persist_counter <= 0:
-            self.current_scene = None
+            self.current_scene = "默认场景"
 
         # 实时关键词检测
         detected_scene = None
@@ -61,7 +61,7 @@ class DialogHistory:
         return self.current_scene
 
     def force_exit_scene(self):
-        self.current_scene = None
+        self.current_scene = "默认场景"
 
 
 history = DialogHistory()
@@ -182,7 +182,6 @@ def get_seasonal_context() -> Dict[str, str]:
 
 def recommend_devices(user: UserProfile, match_devices: List[Union[str, List[str]]]) -> list[Any] | None:
     """使用TOPSIS综合推荐设备，同组设备只选评分最高的"""
-
     # 1. 获取当前上下文
     time_dict = get_seasonal_context()
     season = time_dict["season"]
@@ -202,37 +201,36 @@ def recommend_devices(user: UserProfile, match_devices: List[Union[str, List[str
     # 3. 构建决策矩阵（每行是一个设备，每列是一个准则的得分）
     def get_device_scores(device: str) -> list:
         """计算设备在各准则下的得分（与AHP逻辑一致）"""
-        scores = []
-        # 地域特征
-        scores.append(1.0 if device in REGION_DEVICE_MAP[user.region].get(season, []) else 0.0)
-        # 家庭特征
+        # (1) 地域特征：设备是否适应当前地区和季节？
+        scores = [1.0 if device in REGION_DEVICE_MAP[user.region].get(season, []) else 0.0]
+        # (2) 家庭特征：设备是否符合家庭情况（小孩/老人/宠物）？
         matched_features = sum(
             1 for feature, devices in FAMILY_FEATURE_MAP.items()
             if getattr(user, feature) and device in devices
         )
         family_features = len(FAMILY_FEATURE_MAP)
         scores.append(matched_features / family_features if family_features > 0 else 0.0)
-        # 生活习惯
+        # (3) 生活习惯：设备是否符合用户的工作和烹饪习惯？
         lifestyle_score = 0.0
         if device in LIFESTYLE_FEATURES_MAP["cooking"][user.cooking_habits]:
             lifestyle_score += 0.6
         if user.work_schedule != "regular" and device in LIFESTYLE_FEATURES_MAP["work_schedule"][user.work_schedule]:
             lifestyle_score += 0.4
         scores.append(lifestyle_score)
-        # 时间相关
+        # (4) 时间相关：设备是否适合当前季节和时间段？
         time_score = 0.0
         if device in SEASON_DEVICE_MAP[season]:
             time_score += 0.5
         if device in TIME_DEVICE_MAP[weekday][time]:
             time_score += 0.5
         scores.append(time_score)
-        # 使用频率
+        # (5) 使用频率：设备是否经常被使用？
         max_usage = max(user.device_usage.values()) if user.device_usage else 1
         usage_score = user.device_usage.get(device, 0) / max_usage if max_usage > 0 else 0
         scores.append(usage_score)
         return scores
 
-    # 4. 处理设备组（同AHP逻辑，每组只保留最高分设备）
+    # 4. 处理设备组（每组只保留最高分设备）
     candidate_devices = []
     processed_groups = set()
     for group in match_devices:
@@ -249,7 +247,12 @@ def recommend_devices(user: UserProfile, match_devices: List[Union[str, List[str
 
     # 5. 构建决策矩阵并归一化（向量归一化，TOPSIS标准方法）
     decision_matrix = np.array([get_device_scores(device) for device in candidate_devices])
-    norm_matrix = decision_matrix / np.linalg.norm(decision_matrix, axis=0, keepdims=True)
+
+    # 处理可能全为零的列
+    column_norms = np.linalg.norm(decision_matrix, axis=0, keepdims=True)
+    # 将零范数列替换为1，避免除以零
+    column_norms[column_norms == 0] = 1
+    norm_matrix = decision_matrix / column_norms
 
     # 6. 加权归一化矩阵
     weighted_matrix = norm_matrix * CRITERIA_WEIGHTS
@@ -261,7 +264,12 @@ def recommend_devices(user: UserProfile, match_devices: List[Union[str, List[str
     # 8. 计算距离和相对接近度
     dist_best = np.linalg.norm(weighted_matrix - ideal_best, axis=1)
     dist_worst = np.linalg.norm(weighted_matrix - ideal_worst, axis=1)
-    closeness = dist_worst / (dist_best + dist_worst)
+
+    # 处理可能的零距离情况
+    with np.errstate(divide='ignore', invalid='ignore'):
+        closeness = np.where((dist_best + dist_worst) != 0,
+                             dist_worst / (dist_best + dist_worst),
+                             0)  # 如果分母为零，则设为0
 
     # 9. 按接近度排序设备
     ranked_devices = [
@@ -427,6 +435,9 @@ def get_device(user_input: str, user_profile: UserProfile) -> list[str] | str:
     )
 
     response = chat_qianfan(prompt)
+    if "未知设备" in response:
+        return ["未知设备"]
+
     if isinstance(response, str):
         response = json.loads(response)
     filtered_devices = []
@@ -539,7 +550,7 @@ def initialize_user_profile(user_id: int) -> UserProfile:
 
 def main():
     # 获取用户ID
-    global user_file
+    global user_profile
     user_id = input("请输入您的用户ID: ")
     if not user_id:
         user_id = 0
@@ -561,16 +572,14 @@ def main():
             user_input = input("用户输入: ").strip()
             result = process_input(user_input, user_profile)
             if result:
-                user_file.record_device(result)
                 print(f"需要操作的设备：{result}")
         elif choice == "2":
             user_input = VoiceRecognition()
             result = process_input(user_input, user_profile)
             if result:
-                user_file.record_device(result)
                 print(f"需要操作的设备：{result}")
         elif choice == "3":
-            user_file = initialize_user_profile(user_id)
+            user_profile = initialize_user_profile(user_id)
         elif choice == "4":
             new_user_input = input("请输入新的64位整数用户ID: ").strip()
             new_user_id = int(new_user_input)

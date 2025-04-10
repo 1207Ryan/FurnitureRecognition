@@ -1,5 +1,7 @@
+numpy==1.24.4
 PyAudio==0.2.14
 Requests==2.32.3
+scikit_learn==1.4.2
 sparkai==0.3.0
 volcengine_python_sdk==1.1.2
 vosk==0.3.45

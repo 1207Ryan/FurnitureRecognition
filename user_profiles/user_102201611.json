@@ -13,7 +13,11 @@
   },
   "device_data": {
     "work_schedule": "regular",
-    "cooking_habits": "rare",
-    "usage": {}
+    "cooking_habits": "medium",
+    "usage": {
+      "空调": 1,
+      "热水器": 1,
+      "浴霸": 2
+    }
   }
 }
