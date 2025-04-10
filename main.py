@@ -68,34 +68,24 @@ history = DialogHistory()
 
 
 class UserProfile:
-    # 基础信息
-    age: Optional[int]
-    gender: Optional[str]
-    region: Optional[str]
-    # 家庭信息
-    family_members: int
-    has_children: bool
-    has_elderly: bool
-    has_pet: bool
-    #生活习惯
-    work_schedule: str  # "regular", "night_shift", "flexible"
-    cooking_habits: str  # "rare", "medium", "frequent"
-    device_usage: Dict[str, int] = field(default_factory=dict)  # 设备使用次数统计
-
-    def __init__(self, age: Optional[int] = 20, gender: Optional[str] = "male",
+    def __init__(self, user_id: int, age: Optional[int] = 20, gender: Optional[str] = "male",
                  region: Optional[str] = "south", family_members: Optional[int] = 1,
                  has_children: Optional[bool] = False, has_elderly: Optional[bool] = False,
                  has_pet: Optional[bool] = False, work_schedule: Optional[str] = "regular",
                  cooking_habits: Optional[str] = "medium", device_usage: Dict[str, int] = None):
+        # 基础信息
+        self.user_id = user_id
         self.age = age
         self.gender = gender
         self.region = region
+        # 家庭信息
         self.family_members = family_members
         self.has_children = has_children
         self.has_elderly = has_elderly
         self.has_pet = has_pet
-        self.work_schedule = work_schedule if work_schedule is not None else "regular"
-        self.cooking_habits = cooking_habits if cooking_habits is not None else "medium"
+        # 生活习惯
+        self.work_schedule = work_schedule if work_schedule is not None else "regular"  # "regular", "night_shift", "flexible"
+        self.cooking_habits = cooking_habits if cooking_habits is not None else "medium"  # "rare", "medium", "frequent"
         self.device_usage = device_usage if device_usage is not None else {}
 
     def record_device_usage(self, device_name: str):
@@ -110,11 +100,15 @@ class UserProfile:
                 for d in dev:
                     self.record_device_usage(d)
 
-        self.save_to_file("user_profile.json")
+        self.save_to_file(f"user_profiles/user_{self.user_id}.json")  # 修改为按用户ID保存
 
     def save_to_file(self, filepath: str):
         """保存完整用户数据"""
+        # 确保用户目录存在
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+
         data = {
+            "user_id": self.user_id,  # 保存用户ID
             "basic_info": {
                 "age": self.age,
                 "gender": self.gender,
@@ -142,6 +136,7 @@ class UserProfile:
             with open(filepath, 'r', encoding='utf-8') as f:
                 data = json.load(f)
                 return cls(
+                    user_id=data.get("user_id", "default"),  # 读取用户ID
                     age=data["basic_info"].get("age"),
                     gender=data["basic_info"].get("gender"),
                     region=data["basic_info"].get("region"),
@@ -154,7 +149,7 @@ class UserProfile:
                     device_usage=data["device_data"].get("usage", {})
                 )
         except (FileNotFoundError, json.JSONDecodeError, KeyError):
-            return cls()  # 返回默认配置
+            return cls(user_id=0)  # 返回默认配置
 
 
 def get_seasonal_context() -> Dict[str, str]:
@@ -466,9 +461,24 @@ def process_input(user_input: str, user_profile: UserProfile):
     return device
 
 
-def initialize_user_profile() -> UserProfile:
+def get_user_profile(user_id: int) -> UserProfile:
+    """根据用户ID获取用户配置"""
+    # 验证user_id是否为有效整数
+    try:
+        user_id = int(user_id)
+    except (ValueError, TypeError):
+        user_id = 0  # 无效ID使用默认值
+
+    profile_path = f"user_profiles/user_{user_id}.json"
+    if os.path.exists(profile_path):
+        return UserProfile.load_from_file(profile_path)
+    else:
+        return initialize_user_profile(user_id)
+
+
+def initialize_user_profile(user_id: int) -> UserProfile:
     """Initialize a new user profile by collecting information from user input"""
-    print("\n===== 新用户配置向导 =====")
+    print(f"\n===== 用户 {user_id} 配置向导 =====")
     print("请回答以下问题来初始化您的个人资料 (直接回车可跳过问题)\n")
 
     # Basic Information
@@ -508,6 +518,7 @@ def initialize_user_profile() -> UserProfile:
 
     # Initialize with collected data (convert empty strings to None)
     user_profile = UserProfile(
+        user_id=user_id,
         age=int(age) if age else None,
         gender=gender if gender else None,
         region=region if region else None,
@@ -521,27 +532,29 @@ def initialize_user_profile() -> UserProfile:
     )
 
     # Save the profile
-    user_profile.save_to_file("user_profile.json")
+    user_profile.save_to_file(f"user_profiles/user_{user_id}.json")
     print("\n用户配置已完成并保存!")
     return user_profile
 
 
 def main():
-    # 读取用户信息
+    # 获取用户ID
     global user_file
-    try:
-        with open('user_profile.json', 'r', encoding='utf-8') as user_file:
-            user_profile = UserProfile.load_from_file('user_profile.json')  # 自动处理嵌套结构
-            print(user_profile)
-    except FileNotFoundError:
-        user_profile = initialize_user_profile()
+    user_id = input("请输入您的用户ID: ")
+    if not user_id:
+        user_id = 0
+
+    # 获取用户配置
+    user_profile = get_user_profile(user_id)
+
     while True:
         print("\n请选择输入方式:")
         print("1. 文本输入")
         print("2. 语音输入")
         print("3. 初始化用户信息")
-        print("4. 退出")
-        choice = input("请输入选项(1-4): ").strip()
+        print("4. 切换用户")
+        print("5. 退出")
+        choice = input("请输入选项(1-5): ").strip()
         # print("当前用户画像:", ContextService.get_user_context(user_profile))
         # print(user_profile.get_sorted_devices())
         if choice == "1":
@@ -557,8 +570,14 @@ def main():
                 user_file.record_device(result)
                 print(f"需要操作的设备：{result}")
         elif choice == "3":
-            user_file = initialize_user_profile()
+            user_file = initialize_user_profile(user_id)
         elif choice == "4":
+            new_user_input = input("请输入新的64位整数用户ID: ").strip()
+            new_user_id = int(new_user_input)
+            if new_user_id != user_id:
+                user_id = new_user_id
+                user_profile = get_user_profile(user_id)
+        elif choice == "5":
             break
 
 
